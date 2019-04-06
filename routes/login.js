@@ -1,5 +1,5 @@
-var express = require('express');
-var router = express.Router();
+const express = require('express');
+const router = express.Router();
 
 router.post('/account', function(req, res, next) {
   const { password, userName, type } = req.body;
