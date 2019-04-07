@@ -6,10 +6,19 @@ const cheerio = require('cheerio');
 const Crawler = require("crawler");
 const MongoClient = require('mongodb').MongoClient;
 const moment = require('moment');
+const superagent = require('superagent');
+const fs = require('fs');
+const events = require("events");
+let  emitter = new events.EventEmitter();
 
 router.get('/getCookie', function(req, res, next) {
   let data = crawlerTest.getCookie();
   res.send(data);
+});
+
+router.get('/stop', function(req, res, next) {
+  emitter.emit("stop_crawler");
+  res.send('stop crawler');
 });
 
 router.post('/test', function(req, res, next) {
@@ -20,41 +29,57 @@ router.post('/test', function(req, res, next) {
 });
 
 router.get('/crawlData', function(req, res, next) {
-  let url = "mongodb://localhost:27017/gpbase";
+  let dbAddress = "mongodb://localhost:27017/gpbase";
   let menuList = [];
   let urlList = []
   let location = '杭州';
 
-  MongoClient.connect(url, function(err, db) {
+  MongoClient.connect(dbAddress, function(err, db) {
     if (err) throw err;
-    let dbo = db.db("gpbase");
-    let c = new Crawler({
+    emitter.addListener("stop_crawler",function(){
+      throw err;
+    });
+    let dbObj = db.db("gpbase");
+    let crawler = new Crawler({
       preRequest: function(options, done) {
-        console.log(options.uri);
         done();
       },
       jQuery: true,
-      rateLimit: 25000,
+      rateLimit: 24340 + Math.random()*100,
       maxConnections: 1,
       headers:{
-        'Cookie':'index_location_city='+encodeURI(location)+';user_trace_token=20181127172617-5d56fc60-618b-4486-9762-21efad3c49df; JSESSIONID=ABAAABAAAFCAAEG70DFEA8B139FF80287ABDF2F4C137946; showExpriedIndex=1; showExpriedCompanyHome=1; showExpriedMyPublish=1; _ga=GA1.2.405959562.1543310779; _gid=GA1.2.577762828.1543310779; Hm_lvt_4233e74dff0ae5bd0a3d81c6ccf756e6=1543310402,1543310779; LGSID=20181127172618-7ef404ed-f226-11e8-80e4-525400f775ce; PRE_UTM=; PRE_HOST=; PRE_SITE=; PRE_LAND=https%3A%2F%2Fwww.lagou.com%2F; LGUID=20181127172618-7ef406c2-f226-11e8-80e4-525400f775ce; _gat=1; TG-TRACK-CODE=index_navigation; SEARCH_ID=88db5c7fa2464090a6dd7041f35074ba; X_HTTP_TOKEN=492369107a1a20441020ab9b771f2f6d; sensorsdata2015jssdkcross=%7B%22distinct_id%22%3A%221675489482d244-0f3ef5ad6aef94-4313362-2073600-1675489482e36f%22%2C%22%24device_id%22%3A%221675489482d244-0f3ef5ad6aef94-4313362-2073600-1675489482e36f%22%7D; sajssdk_2015_cross_new_user=1; ab_test_random_num=0; _putrc=69D503B669D896FC123F89F2B170EADC; login=true; hasDeliver=0; gate_login_token=33f3414d87f12e09e089b3b6daf10134f0a5ebf49fad63dfd9b8bc4e3a4f162b; unick=hello; LGRID=20181127174101-8d501f2b-f228-11e8-8c21-5254005c3644; Hm_lpvt_4233e74dff0ae5bd0a3d81c6ccf756e6=1543311662',
-        'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.102 Safari/537.36',
+        'Cookie':'index_location_city='+encodeURI(location)+';user_trace_token=20181127172617-5d56fc60-618b-'+Math.random()*1000+'-'+Math.random()*1000+'-21efad3c49df; JSESSIONID=ABAAABAAAFCAAEG70DFEA8B139FF80287ABDF2F4C137946; showExpriedIndex=1; showExpriedCompanyHome=1; showExpriedMyPublish=1; _ga=GA1.2.405959562.1543310779; _gid=GA1.2.577762828.1543310779; Hm_lvt_4233e74dff0ae5bd0a3d81c6ccf756e6=1543310402,1543310779; LGSID=20181127172618-7ef404ed-f226-11e8-80e4-525400f775ce; PRE_UTM=; PRE_HOST=; PRE_SITE=; PRE_LAND=https%3A%2F%2Fwww.lagou.com%2F; LGUID=20181127172618-7ef406c2-f226-11e8-80e4-525400f775ce; _gat=1; TG-TRACK-CODE=index_navigation; SEARCH_ID=88db5c7fa2464090a6dd7041f35074ba; X_HTTP_TOKEN=492369107a1a20441020ab9b771f2f6d; sensorsdata2015jssdkcross=%7B%22distinct_id%22%3A%221675489482d244-0f3ef5ad6aef94-4313362-2073600-1675489482e36f%22%2C%22%24device_id%22%3A%221675489482d244-0f3ef5ad6aef94-4313362-2073600-1675489482e36f%22%7D; sajssdk_2015_cross_new_user=1; ab_test_random_num=0; _putrc=69D503B669D896FC123F89F2B170EADC; login=true; hasDeliver=0; gate_login_token=33f3414d87f12e09e089b3b6daf10134f0a5ebf49fad63dfd9b8bc4e3a4f162b; unick=hello; LGRID=20181127174101-8d501f2b-f228-11e8-8c21-5254005c3644; Hm_lpvt_4233e74dff0ae5bd0a3d81c6ccf756e6=1543311662',
+        'Accept': 'application/json, text/javascript, */*; q=0.01',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept-Language': 'zh-CN,zh;q=0.9',
+        'Connection': 'keep-alive',
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'Cookie': '',
+        'Host': 'www.lagou.com',
+        'Origin': 'https://www.lagou.com',
+        'Referer': 'https://www.lagou.com/jobs/list_web?city=%E6%9D%AD%E5%B7%9E&cl=false&fromSearch=true&labelWords=&suginput=',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.80 Safari/537.36',
+        'Cache-Control': 'max-age=0',
+        'X-Anit-Forge-Code': '0',
+        'X-Anit-Forge-Token': 'None',
+        'X-Requested-With': 'XMLHttpRequest',
       },
       callback : function (error, res, done) {
-        if(error){
+        if (error) {
           console.log(error);
           done();
-        }else{
-          var $ = res.$;
-          var jobArr = []
-          console.log($('title').text())
+        } else {
+          let $ = res.$;
+          let jobArr = [];
           $('.con_list_item').each(function (idx, item) {
-            var $item = $(item);
-            let experienceText = $item.find('.p_bot .li_b_l').not('.money').text().replace(/\s+/g,"");
+            let $item = $(item);
+            let experienceText = $item.find('.p_bot').find('.li_b_l').text().replace(/\s+/g,"").split('k')[2];
             let industry = $item.find('.industry').text().replace(/\s+/g,"");
+            let industryLables = [];
+            $item.find('.list_item_bot').find('.li_b_l').find('span').each(function(){industryLables.push($(this).text())});
             jobArr.push({
               name: $item.find('.position_link').find('h3').text(),
-              city: location,
+              // city: location,
               district: $item.find('.add').find('em').text(),  //地区
               workYear: experienceText.split('/')[0], //经验
               education: experienceText.split('/')[1],  //学历
@@ -69,25 +94,34 @@ router.get('/crawlData', function(req, res, next) {
               detailLink: $item.find('a').attr('href'), //详情链接
               companyLogo: $item.find('.com_logo').find('img').attr('src'),
               salary: $item.find('.money').text(),  //薪资
-              industryLables:$item.find('.list_item_bot').find('span').text(), //公司标签
-              positionAdvantage:$item.find('.li_b_r').text(), //公司简介
+              industryLables: industryLables, //公司标签
+              positionAdvantage:$item.find('.li_b_r').text().replace(/^\“|\”$/g,''), //公司简介
               formatTime: $item.find('.format-time').text(),
-              createTime: moment().format("YYYY-MM-DD HH:mm:ss")
+              createTime: Date.parse(new Date())+'',
+              status: 1
             });
           });
           try {
-            console.log('c.queueSize',c.queueSize);
-            console.log('jobArr',jobArr.length)
+            console.log(`total page ${crawler.queueSize}`);
+            console.log(`pageSize ${jobArr.length}`);
+            if (jobArr.length === 0) {
+              throw '无数据, 停止爬取';
+            }
             if(jobArr.length > 0 ){
+              for (let i = 0; i < jobArr.length; i++) {
+                dbObj.collection("job").update(jobArr[i], {'$set':jobArr[i]},{upsert:true},function(err, res) {
+                  if (err) throw err;
+                })
+              }
+              console.log('职位数据写入成功');
               //保存到数据库中
-              dbo.collection("job").insertMany(jobArr, function(err, res) {
-                if (err) throw err;
-                console.log('job 数据导入成功!');
-                // db.close();
-              })
+              // dbObj.collection("job").updateMany(jobArr, {'$set':jobArr},{upsert:true},function(err, res) {
+              //   if (err) throw err;
+              //   console.log('职位数据写入成功');
+              // })
             }
             done();
-          }catch(e){
+          } catch(e) {
             console.log(e);
             done();
           }
@@ -96,7 +130,7 @@ router.get('/crawlData', function(req, res, next) {
     });
 
     //爬取首页的menu的数据
-    c.queue([
+    crawler.queue([
       {
         uri: 'https://www.lagou.com/',
         headers:{
@@ -110,37 +144,92 @@ router.get('/crawlData', function(req, res, next) {
           if (error) {
             console.log(error);
           } else {
-            var $ = res.$;
+            let $ = res.$;
             $('.menu_sub a').each(function (idx, element) {
-              var $element = $(element);
+              let $element = $(element);
               menuList.push({
                 name: $element.text(),
                 tjId: $element.attr('data-lg-tj-id'),
-                // tjIdName:changeName($element.attr('data-lg-tj-id')),
                 tjNo:$element.attr('data-lg-tj-no'),
                 tjCid:$element.attr('data-lg-tj-cid'),
                 link:$element.attr('href'),
               });
               //组装menu前30页的url
-              for(var i = 1 ;i<=30 ;i++){
-                  urlList.push($element.attr('href')+i+'/');
+              for(let i = 1; i <= 30 ;i++){
+                urlList.push($element.attr('href')+i+'/');
               }
             });
             //把首页爬取的menu URL数据加入到需要爬取的队列中
-            c.queue(urlList);
-            console.log(urlList,urlList.length)
-            console.log('menuList 共',menuList.length ,'条数据');
-            dbo.collection("menu").insertMany(menuList, function(err, res) {
-              if (err) throw err;
-              console.log('数据导入成功!');
-              // db.close();
-            })
+            crawler.queue(urlList);
+            console.log(`菜单项总数 ${menuList.length}`);
+            console.log(urlList);
+            console.log(`URL总数 ${urlList.length}`);
+            for (let i = 0; i < menuList.length; i++) {
+              dbObj.collection("menu").update(menuList[i], {'$set':menuList[i]},{upsert:true}, function(err, res) {
+                if (err) throw err;
+                // db.close();
+              })
+            }
+            console.log('menu表写入成功');
+            // dbObj.collection("menu").updateMany(menuList, {'$set':menuList},{upsert:true}, function(err, res) {
+            //   if (err) throw err;
+            //   console.log('menu表写入成功');
+            //   // db.close();
+            // })
           }
           done();
         }
     }])
     res.send('ok');
   });
+});
+
+router.post('/bossZP', function(req, res, next) {
+  let city = '杭州';
+  let query = '前端';
+  superagent
+    .get("https://www.zhipin.com/job_detail/?city=100010000&source=10&query="+encodeURI(query))
+    .end((error,response)=>{
+        var content = response.text;
+        var $ = cheerio.load(content);
+        var result=[];
+        //分析文档结构  先获取每个li 再遍历里面的内容(此时每个li里面就存放着我们想要获取的数据)
+        $(".job-list li .job-primary").each((index,value)=>{
+            //地址和类型为一行显示，需要用到字符串截取
+            //地址
+            let address=$(value).find(".info-primary").children().eq(1).html();
+            //类型
+            let type=$(value).find(".info-company p").html();
+            //解码
+            address=unescape(address.replace(/&#x/g,'%u').replace(/;/g,''));
+            type=unescape(type.replace(/&#x/g,'%u').replace(/;/g,''))
+            //字符串截取
+            let addressArr=address.split('<em class="vline"></em>');
+            let typeArr=type.split('<em class="vline"></em>');
+            //将获取的数据以对象的形式添加到数组中
+            result.push({
+              title:$(value).find(".name .job-title").text(),
+              money:$(value).find(".name .red").text(),
+              address:addressArr,
+              company:$(value).find(".info-company a").text(),
+              type:typeArr,
+              position:$(value).find(".info-publis .name").text(),
+              txImg:$(value).find(".info-publis img").attr("src"),
+              time:$(value).find(".info-publis p").text()
+            });
+            // console.log(typeof $(value).find(".info-primary").children().eq(1).html());
+        });
+        //将数组转换成字符串
+        result=JSON.stringify(result);
+        //将数组输出到json文件里  刷新目录 即可看到当前文件夹多出一个boss.json文件(打开boss.json文件，ctrl+A全选之后 ctrl+K，再Ctrl+F即可将json文件自动排版)
+        fs.writeFile("boss.json",result,"utf-8",(error)=>{
+            //监听错误，如正常输出，则打印null
+            if(error==null){
+                console.log("success");
+            }
+        });
+    });
+  res.send('ok');
 });
 
 module.exports = router;
