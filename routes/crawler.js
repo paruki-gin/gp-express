@@ -16,6 +16,28 @@ router.get('/getCookie', function(req, res, next) {
   res.send(data);
 });
 
+router.get('/getList', function(req, res, next) {
+  let data = [
+    {name: 'x'},
+    {name: 'x'},
+    {name: 'x'},
+    {name: 'x'},
+    {name: 'x'},
+    {name: 'x'},
+    {name: 'x'},
+    {name: 'x'},
+    {name: 'x'},
+    {name: 'x'},
+    {name: 'x'},
+    {name: 'x'},
+    {name: 'x'},
+    {name: 'x'},
+    {name: 'x'}
+  ];
+  res.json(data);
+});
+
+
 router.get('/stop', function(req, res, next) {
   emitter.emit("stop_crawler");
   res.json({
