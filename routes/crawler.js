@@ -9,34 +9,13 @@ const moment = require('moment');
 const superagent = require('superagent');
 const fs = require('fs');
 const events = require("events");
+const dbAddress = require("../config/index");
 let  emitter = new events.EventEmitter();
 
 router.get('/getCookie', function(req, res, next) {
   let data = crawlerTest.getCookie();
   res.send(data);
 });
-
-router.get('/getList', function(req, res, next) {
-  let data = [
-    {name: 'x'},
-    {name: 'x'},
-    {name: 'x'},
-    {name: 'x'},
-    {name: 'x'},
-    {name: 'x'},
-    {name: 'x'},
-    {name: 'x'},
-    {name: 'x'},
-    {name: 'x'},
-    {name: 'x'},
-    {name: 'x'},
-    {name: 'x'},
-    {name: 'x'},
-    {name: 'x'}
-  ];
-  res.json(data);
-});
-
 
 router.get('/stop', function(req, res, next) {
   emitter.emit("stop_crawler");
@@ -54,7 +33,6 @@ router.post('/test', function(req, res, next) {
 });
 
 router.get('/crawlData', function(req, res, next) {
-  let dbAddress = "mongodb://localhost:27017/gpbase";
   let menuList = [];
   let urlList = []
   let location = '杭州';
