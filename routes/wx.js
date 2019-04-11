@@ -33,8 +33,8 @@ router.post('/login', function(req, res, next) {
     .get('https://api.weixin.qq.com/sns/jscode2session')
     .query({
       grant_type: 'authorization_code',
-      appid: 'wx749c671ee1602908',
-      secret: 'df6ae6217dcd85029f66d2e375f89250',
+      appid: '',
+      secret: '',
       js_code: code
     })
     .then((response, err) => {
@@ -44,7 +44,7 @@ router.post('/login', function(req, res, next) {
           let openid = data.openid;
           let session_key = data.session_key;
 
-          let pc = new WXBizDataCrypt('wx749c671ee1602908', session_key)
+          let pc = new WXBizDataCrypt('', session_key)
           let userInfo = pc.decryptData(encryptedData , iv)
           req.session.user = {
             openid,
