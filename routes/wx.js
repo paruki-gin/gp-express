@@ -103,18 +103,23 @@ router.post('/pageList', function(req, res, next) {
   let education = req.body.education || "";
   let pageNo = req.body.pageNo || 1;
   let query = {};
-  console.log('session', req.session);
   MongoClient.connect(dbAddress, function(err, db) {
     if (err) {
       console.error(err)
       db.close();
     };
     let dbObj = db.db("gpbase");
-    dbObj.collection("job")
-        .find({})
-        .skip((pageNo-1)*15)
-        .limit(15)
-        .sort({'createTime': -1})
+    dbObj.collection("job", function (err, collection) {
+      if (err) {
+        dbObj.close();
+        throw err;
+      }
+      collection.count(query, function (err, total) {
+        collection.find(query, {
+          skip: (pageNo-1)*15,
+          limit: 15
+        })
+        .sort({'formatTime': -1})
         .toArray(function(err, result) {
           if (err) {
             throw err;
@@ -123,10 +128,13 @@ router.post('/pageList', function(req, res, next) {
             success: true,
             result: {
               pageNo: pageNo,
-              data: result
+              data: result,
+              total: total
             }
           })
         });
+      })
+    })
   })
 });
 
@@ -142,8 +150,16 @@ router.get('/getJobDetail', function(req, res, next) {
       })
     };
     let dbObj = db.db("gpbase");
+    // dbObj.collection("job").updateOne({positionId: '5228283'}, {
+    //   $set: {
+    //     jobDetail: `        <p>岗位职责：</p>`
+    //   }
+    // }).then((res) => {
+    //   console.log('ok');
+    // })
     dbObj.collection("job")
-        .findOne({'_id': ObjectId(id)}, function(err, result) {
+        .findOne({'_id': ObjectId(id)})
+        .then((result) => {
           if (err) {
             console.error(err);
             db.close();
@@ -152,10 +168,80 @@ router.get('/getJobDetail', function(req, res, next) {
               msg: '查询失败'
             })
           }
-          res.json({
-            success: true,
-            result: result
-          })
+          if (result.isComplete) {
+            res.json({
+              success: true,
+              result: result
+            })
+          } else {
+            let crawler = new Crawler();
+            crawler.queue([
+              {
+                uri: result.detailLink,
+                headers:{
+                  'Set-Cookie':'index_location_city='+encodeURI('杭州'),
+                  'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.102 Safari/537.36',
+                  'JSESSIONID':'ABAAABAAAGFABEFC5E29AF672C4DAF0B10AEE494D83FD62',
+                  'login':true
+                },
+                jQuery: {
+                  name: 'cheerio',
+                  options: {
+                    // normalizeWhitespace: true,
+                    // xmlMode: true,
+                    decodeEntities: false
+                  }
+                },
+                callback: function (error, ress, done) {
+                  try {
+                    if (error) {
+                      throw error
+                    } else {
+                      let $ = ress.$;
+                      let jobDetail = $('.job-detail').html();
+                      let workAddrText = $('.work_addr').text().replace(/\s+/g,"");
+                      let workAddr = '';
+                      if (workAddrText.indexOf('查看地图') > -1) {
+                        workAddr = workAddrText.substring(0, workAddrText.indexOf('查看地图'));
+                      } else {
+                        workAddr = workAddrText;
+                      }
+                      console.log('id', id);
+                      dbObj.collection("job").updateOne({_id: ObjectId(id)}, {
+                        $set: {
+                          jobDetail: jobDetail,
+                          workAddr: workAddr,
+                          isComplete: 1
+                        }
+                      }).then(() => {
+                        dbObj.collection("job")
+                          .findOne({'_id': ObjectId(id)})
+                          .then((result) => {
+                            if (err) {
+                              console.error(err);
+                              db.close();
+                              res.json({
+                                success: false,
+                                msg: '查询失败'
+                              })
+                            } else {
+                              res.json({
+                                success: true,
+                                result: result
+                              })
+                            }
+                          })
+                      })
+                    }
+                    done();
+                  } catch (e) {
+                    console.error(e);
+                    done();
+                    db.close();
+                  }
+                }
+            }])
+          }
         });
   })
 });
