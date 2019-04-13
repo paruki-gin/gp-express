@@ -54,12 +54,4 @@ router.get('/', function(req, res, next) {
   });
 });
 
-router.post('/getUserInfo', function(req, res, next) {
-  console.log(req.body);
-  res.json({
-    success: true,
-    data: {}
-  })
-})
-
 module.exports = router;

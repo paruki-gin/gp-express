@@ -119,7 +119,7 @@ router.post('/pageList', function(req, res, next) {
           skip: (pageNo-1)*15,
           limit: 15
         })
-        .sort({'formatTime': -1})
+        .sort({'createTime': -1})
         .toArray(function(err, result) {
           if (err) {
             throw err;
