@@ -5,7 +5,13 @@ const usersRouter = require('./users');
 const crawlerRouter = require('./crawler');
 const wxRouter = require('./wx');
 const manageRouter = require('./manage');
+const jwtAuth = require('../utils/jwt');
 
+// router.use((req, res, next) => {
+//   console.log('authorization', req['headers']['authorization']);
+//   next();
+// });
+router.use(jwtAuth);
 router.use('/login', loginRouter);
 router.use('/currentUser', usersRouter);
 router.use('/crawler', crawlerRouter);

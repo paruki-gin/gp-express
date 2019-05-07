@@ -21,10 +21,10 @@ function insertCrawlerLog(dbObj, msg) {
   })
 }
 
-router.get('/getCookie', function(req, res, next) {
-  let data = crawlerTest.getCookie();
-  res.send(data);
-});
+// router.get('/getCookie', function(req, res, next) {
+//   let data = crawlerTest.getCookie();
+//   res.send(data);
+// });
 
 router.get('/stop', function(req, res, next) {
   emitter.emit("stop_crawler");

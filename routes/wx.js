@@ -10,19 +10,42 @@ const fs = require('fs');
 const events = require("events");
 const dbAddress = require("../config/index");
 const WXBizDataCrypt = require('../utils/WXBizDataCrypt');
+const jwt = require("jsonwebtoken");
+const { MD5_SUFFIX, md5, secretKey } = require('../utils/constant');
 
 router.get('/getUserInfo', function(req, res, next) {
-  console.log("Cookie", req['headers']['Cookie'])
-  console.log('sessionID', req.session.id)
-  if (req.sessionID === req['headers']['Cookie']) {
-    res.json({
-      success: true,
-      data: req.sessionID
-    })
-  } else {
-    res.json({
-      success: false,
-      msg: '用户未登录'
+  let authorization = req['headers']['authorization'];
+  if (authorization.length) {
+    let decoded = jwt.decode(authorization.split(' ')[1]);
+    let openid = decoded['openid'];
+    MongoClient.connect(dbAddress, function(err, db) {
+      if (err) {
+        console.error(err)
+        db.close();
+      };
+      let dbObj = db.db("gpbase");
+      dbObj.collection("user")
+        .findOne({'openId':openid}, function(err, result) {
+          if (err) {
+            console.error(err);
+            db.close();
+          }
+          if (!result) {
+            res.json({
+              success: true,
+              data: {}
+            })
+          } else {
+            let {nickName, avatarUrl, _id} = result;
+            res.json({
+              success: true,
+              data: {
+                nickName,
+                avatarUrl
+              }
+            })
+          }
+        });
     })
   }
 })
@@ -33,8 +56,8 @@ router.post('/login', function(req, res, next) {
     .get('https://api.weixin.qq.com/sns/jscode2session')
     .query({
       grant_type: 'authorization_code',
-      appid: '',
-      secret: '',
+      appid: 'wx749c671ee1602908',
+      secret: 'df6ae6217dcd85029f66d2e375f89250',
       js_code: code
     })
     .then((response, err) => {
@@ -43,16 +66,18 @@ router.post('/login', function(req, res, next) {
         if (data.openid) {
           let openid = data.openid;
           let session_key = data.session_key;
-
-          let pc = new WXBizDataCrypt('', session_key)
+          let pc = new WXBizDataCrypt('wx749c671ee1602908', session_key)
           let userInfo = pc.decryptData(encryptedData , iv)
-          req.session.user = {
+          // req.session.user = {
+          //   openid,
+          //   session_key,
+          //   nickName: userInfo.nickName,
+          //   avatarUrl: userInfo.avatarUrl
+          // }
+          let tokenObj = {
             openid,
-            session_key,
-            nickName: userInfo.nickName,
-            avatarUrl: userInfo.avatarUrl
-          }
-
+            session_key
+          };
           MongoClient.connect(dbAddress, function(err, db) {
             if (err) {
               console.error(err)
@@ -60,7 +85,7 @@ router.post('/login', function(req, res, next) {
             };
             let dbObj = db.db("gpbase");
             dbObj.collection("user")
-              .findOne({'openid':openid}, function(err, result) {
+              .findOne({'openId':openid}, function(err, result) {
                 if (err) {
                   console.error(err);
                   db.close();
@@ -69,16 +94,20 @@ router.post('/login', function(req, res, next) {
                   dbObj.collection("user").insert(userInfo, function(err, res) {
                     if (err) throw err;
                   })
-                } else {}
+                } else {
+                }
               });
-          })
-          res.json({
-            success: true,
-            data: {
-              sessionId: req.sessionID,
-              nickName: userInfo.nickName,
-              avatarUrl: userInfo.avatarUrl
-            }
+            let token = jwt.sign(tokenObj, secretKey, {
+              expiresIn: '7d'
+            })
+            res.json({
+              success: true,
+              data: {
+                token: token,
+                nickName: userInfo.nickName,
+                avatarUrl: userInfo.avatarUrl
+              }
+            })
           })
         } else {
           res.json({
@@ -138,6 +167,69 @@ router.post('/pageList', function(req, res, next) {
   })
 });
 
+router.post('/pageCollectionList', function(req, res, next) {
+  let authorization = req['headers']['authorization'];
+  if (authorization.length) {
+    let decoded = jwt.decode(authorization.split(' ')[1]);
+    let openid = decoded['openid'];
+    MongoClient.connect(dbAddress, function(err, db) {
+      if (err) {
+        console.error(err)
+        db.close();
+      };
+      let dbObj = db.db("gpbase");
+      dbObj.collection("user")
+        .findOne({'openId':openid}, function(err, result) {
+          if (err) {
+            console.error(err);
+            db.close();
+          }
+          if (!result) {
+            res.json({
+              success: true,
+              data: {}
+            })
+          } else {
+            let pageNo = req.body.pageNo || 1;
+            //查询收藏
+            let colleArr = result.collection;
+            let query = {};
+            dbObj.collection("job", function (err, collection) {
+              if (err) {
+                dbObj.close();
+                throw err;
+              }
+              let colleIds = colleArr.map(curr => {
+                return ObjectId(curr);
+              });
+              console.log('colleArr', colleIds);
+              collection.count({ _id : { $in : colleIds }}, function (err, total) {
+                collection.find({ _id : { $in : colleIds }}, {
+                  skip: (pageNo-1)*15,
+                  limit: 15
+                })
+                .sort({'createTime': -1})
+                .toArray(function(err, result) {
+                  if (err) {
+                    throw err;
+                  }
+                  res.json({
+                    success: true,
+                    result: {
+                      pageNo: pageNo,
+                      data: result,
+                      total: total
+                    }
+                  })
+                });
+              })
+            })
+          }
+        });
+    })
+  }
+})
+
 router.get('/getJobDetail', function(req, res, next) {
   let id = req.query.id;
   MongoClient.connect(dbAddress, function(err, db) {
@@ -150,13 +242,6 @@ router.get('/getJobDetail', function(req, res, next) {
       })
     };
     let dbObj = db.db("gpbase");
-    // dbObj.collection("job").updateOne({positionId: '5228283'}, {
-    //   $set: {
-    //     jobDetail: `        <p>岗位职责：</p>`
-    //   }
-    // }).then((res) => {
-    //   console.log('ok');
-    // })
     dbObj.collection("job")
         .findOne({'_id': ObjectId(id)})
         .then((result) => {
@@ -245,5 +330,118 @@ router.get('/getJobDetail', function(req, res, next) {
         });
   })
 });
+
+router.get('/getUserCollectionById', function(req, res, next) {
+  let authorization = req['headers']['authorization'];
+  let jobId = req.query.id;
+  if (authorization.length) {
+    let decoded = jwt.decode(authorization.split(' ')[1]);
+    let openid = decoded['openid'];
+    MongoClient.connect(dbAddress, function(err, db) {
+      if (err) {
+        console.error(err)
+        db.close();
+      };
+      let dbObj = db.db("gpbase");
+      dbObj.collection("user")
+        .findOne({'openId':openid}, function(err, result) {
+          if (err) {
+            console.error(err);
+            db.close();
+          }
+          if (!result) {
+            res.json({
+              success: false,
+              data: {}
+            })
+          } else {
+            let jobs = result.collection;
+            if (jobs.includes(jobId)) {
+              res.json({
+                success: true,
+                data: {
+                  isColled: true
+                }
+              })
+            } else {
+              res.json({
+                success: true,
+                data: {
+                  isColled: false
+                }
+              })
+            }
+          }
+        });
+    })
+  }
+});
+
+router.get('/setUserCollection', function(req, res, next) {
+  let authorization = req['headers']['authorization'];
+  let jobId = req.query.id;
+  if (authorization.length) {
+    let decoded = jwt.decode(authorization.split(' ')[1]);
+    let openid = decoded['openid'];
+    MongoClient.connect(dbAddress, function(err, db) {
+      if (err) {
+        console.error(err)
+        db.close();
+      };
+      let dbObj = db.db("gpbase");
+      dbObj.collection("user").update({"openId":openid},{"$addToSet":{"collection":jobId}}, function(err, result) {
+        if (err) {
+
+        } else {
+          res.json({
+            success: true,
+            msg: '收藏成功'
+          })
+        }
+      })
+      /* dbObj.collection("user")
+        .findOne({'openId':openid}, function(err, result) {
+          if (err) {
+            console.error(err);
+            db.close();
+          }
+          if (!result) {
+            res.json({
+              success: false,
+              error: '失败'
+            })
+          } else {
+
+          }
+        }); */
+    })
+  }
+})
+
+router.get('/delUserCollection', function(req, res, next) {
+  let authorization = req['headers']['authorization'];
+  let jobId = req.query.id;
+  if (authorization.length) {
+    let decoded = jwt.decode(authorization.split(' ')[1]);
+    let openid = decoded['openid'];
+    MongoClient.connect(dbAddress, function(err, db) {
+      if (err) {
+        console.error(err)
+        db.close();
+      };
+      let dbObj = db.db("gpbase");
+      dbObj.collection("user").update({"openId":openid},{"$pull":{"collection":jobId}}, function(err, result) {
+        if (err) {
+
+        } else {
+          res.json({
+            success: true,
+            msg: '取消收藏成功'
+          })
+        }
+      })
+    })
+  }
+})
 
 module.exports = router;
