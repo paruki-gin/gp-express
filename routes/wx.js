@@ -12,6 +12,7 @@ const dbAddress = require("../config/index");
 const WXBizDataCrypt = require('../utils/WXBizDataCrypt');
 const jwt = require("jsonwebtoken");
 const { MD5_SUFFIX, md5, secretKey } = require('../utils/constant');
+const myDb = require('../utils/db');
 
 router.get('/getUserInfo', function(req, res, next) {
   let authorization = req['headers']['authorization'];
@@ -45,6 +46,7 @@ router.get('/getUserInfo', function(req, res, next) {
               }
             })
           }
+          db.close();
         });
     })
   }
@@ -96,6 +98,7 @@ router.post('/login', function(req, res, next) {
                   })
                 } else {
                 }
+                db.close();
               });
             let token = jwt.sign(tokenObj, secretKey, {
               expiresIn: '7d'
@@ -132,15 +135,10 @@ router.post('/pageList', function(req, res, next) {
   let education = req.body.education || "";
   let pageNo = req.body.pageNo || 1;
   let query = {};
-  MongoClient.connect(dbAddress, function(err, db) {
-    if (err) {
-      console.error(err)
-      db.close();
-    };
-    let dbObj = db.db("gpbase");
+  myDb.connect().then(dbObj => {
     dbObj.collection("job", function (err, collection) {
       if (err) {
-        dbObj.close();
+        // db.close();
         throw err;
       }
       collection.count(query, function (err, total) {
@@ -151,8 +149,10 @@ router.post('/pageList', function(req, res, next) {
         .sort({'createTime': -1})
         .toArray(function(err, result) {
           if (err) {
+            // db.close();
             throw err;
           }
+          console.timeEnd('find');
           res.json({
             success: true,
             result: {
@@ -161,10 +161,50 @@ router.post('/pageList', function(req, res, next) {
               total: total
             }
           })
+          // db.close();
         });
       })
     })
   })
+
+  // MongoClient.connect(dbAddress, function(err, db) {
+  //   console.timeEnd('connect');
+  //   if (err) {
+  //     console.error(err)
+  //     db.close();
+  //   };
+  //   console.time('find');
+  //   let dbObj = db.db("gpbase");
+  //   dbObj.collection("job", function (err, collection) {
+  //     if (err) {
+  //       db.close();
+  //       throw err;
+  //     }
+  //     collection.count(query, function (err, total) {
+  //       collection.find(query, {
+  //         skip: (pageNo-1)*15,
+  //         limit: 15
+  //       })
+  //       .sort({'createTime': -1})
+  //       .toArray(function(err, result) {
+  //         if (err) {
+  //           db.close();
+  //           throw err;
+  //         }
+  //         console.timeEnd('find');
+  //         res.json({
+  //           success: true,
+  //           result: {
+  //             pageNo: pageNo,
+  //             data: result,
+  //             total: total
+  //           }
+  //         })
+  //         db.close();
+  //       });
+  //     })
+  //   })
+  // })
 });
 
 router.post('/pageCollectionList', function(req, res, next) {
@@ -196,7 +236,7 @@ router.post('/pageCollectionList', function(req, res, next) {
             let query = {};
             dbObj.collection("job", function (err, collection) {
               if (err) {
-                dbObj.close();
+                db.close();
                 throw err;
               }
               let colleIds = colleArr.map(curr => {
@@ -211,6 +251,7 @@ router.post('/pageCollectionList', function(req, res, next) {
                 .sort({'createTime': -1})
                 .toArray(function(err, result) {
                   if (err) {
+                    db.close();
                     throw err;
                   }
                   res.json({
@@ -221,6 +262,7 @@ router.post('/pageCollectionList', function(req, res, next) {
                       total: total
                     }
                   })
+                  db.close();
                 });
               })
             })
@@ -314,6 +356,7 @@ router.get('/getJobDetail', function(req, res, next) {
                                 success: true,
                                 result: result
                               })
+                              db.close();
                             }
                           })
                       })
@@ -327,6 +370,7 @@ router.get('/getJobDetail', function(req, res, next) {
                 }
             }])
           }
+          db.close();
         });
   })
 });
@@ -372,6 +416,7 @@ router.get('/getUserCollectionById', function(req, res, next) {
               })
             }
           }
+          db.close();
         });
     })
   }
@@ -398,6 +443,7 @@ router.get('/setUserCollection', function(req, res, next) {
             msg: '收藏成功'
           })
         }
+        db.close();
       })
       /* dbObj.collection("user")
         .findOne({'openId':openid}, function(err, result) {
@@ -439,6 +485,7 @@ router.get('/delUserCollection', function(req, res, next) {
             msg: '取消收藏成功'
           })
         }
+        db.close();
       })
     })
   }
