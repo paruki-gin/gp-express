@@ -8,7 +8,10 @@ const jwtAuth = expressJwt({secret: secretKey}).unless({
     {path: ['/api/manage']},
     {path: ['/api/auth_routes']},
     '/api/wx/login',
-    '/api/wx/pageList'
+    '/api/wx/pageList',
+    '/api/wx/getUserInfo',
+    '/api/wx/getJobDetail',
+    '/api/wx/getUserCollectionById'
   ]
 });
 

@@ -49,6 +49,11 @@ router.get('/getUserInfo', function(req, res, next) {
           db.close();
         });
     })
+  } else {
+    res.json({
+      success: false,
+      msg: '未登录'
+    })
   }
 })
 
@@ -128,6 +133,16 @@ router.post('/login', function(req, res, next) {
     })
 });
 
+router.get('/logout', function(req, res, next) {
+  let authorization = req['headers']['authorization'];
+  console.log(authorization);
+  if (!authorization.length) {
+    res.json({
+      success: true
+    })
+  }
+})
+
 router.post('/pageList', function(req, res, next) {
   let city = req.body.city || "";
   let keyword = req.body.keyword || "";
@@ -152,7 +167,6 @@ router.post('/pageList', function(req, res, next) {
             // db.close();
             throw err;
           }
-          console.timeEnd('find');
           res.json({
             success: true,
             result: {
@@ -418,6 +432,11 @@ router.get('/getUserCollectionById', function(req, res, next) {
           }
           db.close();
         });
+    })
+  } else {
+    res.json({
+      success: false,
+      msg: '未登录'
     })
   }
 });
