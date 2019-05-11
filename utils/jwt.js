@@ -11,7 +11,8 @@ const jwtAuth = expressJwt({secret: secretKey}).unless({
     '/api/wx/pageList',
     '/api/wx/getUserInfo',
     '/api/wx/getJobDetail',
-    '/api/wx/getUserCollectionById'
+    '/api/wx/getUserCollectionById',
+    '/api/wx/changeData'
   ]
 });
 

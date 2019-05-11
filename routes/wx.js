@@ -14,22 +14,89 @@ const jwt = require("jsonwebtoken");
 const { MD5_SUFFIX, md5, secretKey } = require('../utils/constant');
 const myDb = require('../utils/db');
 
+router.get('/changeData', function(req, res, next) {
+  // var str="10k-20K";
+	// var n=str.replace(/[kK]/g,'');
+  // var res = n.split('-');
+  myDb.connect().then(dbObj => {
+    let result = dbObj.collection("job").find({}, {'_id': 1, 'salary': 1});
+    let list=[];
+    result.each(function(error,doc){
+      if (error) {
+        console.log(error);
+      } else {
+        if (doc!=null) {  //如果循环遍历出数据
+            list.push(doc);
+        } else {  //doc==null表示数据循环完成
+          /*获取数据以后*/
+          for(var i=0;i<list.length;i++){
+            let salaryStr = list[i].salary;
+            let str = salaryStr.replace(/[kK]/g,'');
+            let ss = str.split('-');
+            let salaryMin = ss[0];
+            let salaryMax = ss[1];
+            let salaryStage = [];
+            //判断区间是否交叉
+            //start2 <= end1 && end2 >= start1
+            if (0 <= salaryMax && 2 >= salaryMin) {
+              salaryStage.push('0');
+            }
+            if (2 <= salaryMax && 5 >= salaryMin) {
+              salaryStage.push('1');
+            }
+            if (5 <= salaryMax && 10 >= salaryMin) {
+              salaryStage.push('2');
+            }
+            if (10 <= salaryMax && 15 >= salaryMin) {
+              salaryStage.push('3');
+            }
+            if (15 <= salaryMax && 25 >= salaryMin) {
+              salaryStage.push('4');
+            }
+            if (25 <= salaryMax && 50 >= salaryMin) {
+              salaryStage.push('5');
+            }
+            if (50 <= salaryMax && 100 >= salaryMin) {
+              salaryStage.push('6');
+            }
+            dbObj.collection("job").update({_id: ObjectId(list[i]._id)}, {
+              $set: {
+                salaryMin,
+                salaryMax,
+                salaryStage
+              }
+            }, function(err, res) {
+              if (err) throw err;
+            })
+            // dbObj.collection("job").updateOne({_id: ObjectId(id)}, {
+            //   $set: {
+            //     jobDetail: jobDetail,
+            //     workAddr: workAddr,
+            //     isComplete: 1
+            //   }
+            // })
+            // console.log(list[i]._id, salaryMin, salaryMax, salaryStage);
+          }
+        }
+      }
+    });
+    res.json({
+      success: true,
+      data: {}
+    })
+  })
+});
+
 router.get('/getUserInfo', function(req, res, next) {
   let authorization = req['headers']['authorization'];
   if (authorization.length) {
     let decoded = jwt.decode(authorization.split(' ')[1]);
     let openid = decoded['openid'];
-    MongoClient.connect(dbAddress, function(err, db) {
-      if (err) {
-        console.error(err)
-        db.close();
-      };
-      let dbObj = db.db("gpbase");
+    myDb.connect().then(dbObj => {
       dbObj.collection("user")
         .findOne({'openId':openid}, function(err, result) {
           if (err) {
             console.error(err);
-            db.close();
           }
           if (!result) {
             res.json({
@@ -46,7 +113,6 @@ router.get('/getUserInfo', function(req, res, next) {
               }
             })
           }
-          db.close();
         });
     })
   } else {
@@ -85,17 +151,11 @@ router.post('/login', function(req, res, next) {
             openid,
             session_key
           };
-          MongoClient.connect(dbAddress, function(err, db) {
-            if (err) {
-              console.error(err)
-              db.close();
-            };
-            let dbObj = db.db("gpbase");
+          myDb.connect().then(dbObj => {
             dbObj.collection("user")
               .findOne({'openId':openid}, function(err, result) {
                 if (err) {
                   console.error(err);
-                  db.close();
                 }
                 if (!result) {
                   dbObj.collection("user").insert(userInfo, function(err, res) {
@@ -103,7 +163,6 @@ router.post('/login', function(req, res, next) {
                   })
                 } else {
                 }
-                db.close();
               });
             let token = jwt.sign(tokenObj, secretKey, {
               expiresIn: '7d'
@@ -144,12 +203,29 @@ router.get('/logout', function(req, res, next) {
 })
 
 router.post('/pageList', function(req, res, next) {
-  let city = req.body.city || "";
-  let keyword = req.body.keyword || "";
-  let workYear = req.body.keyword || "";
-  let education = req.body.education || "";
-  let pageNo = req.body.pageNo || 1;
   let query = {};
+  let currRegion = req.body.currRegion || "";
+  let currInput = req.body.currInput || "";
+  if (currInput) {
+    query['name'] = new RegExp(currInput, 'i');
+  }
+  let currSalary = req.body.currSalary || "";
+  if (currSalary && currSalary !== '-1') {
+    query['salaryStage'] = currSalary;
+  }
+  let currWorkYear = req.body.currWorkYear || "";
+  if (currWorkYear && currWorkYear !== '-1') {
+    query['workYear'] = currWorkYear;
+  }
+  let currCompanySize = req.body.currCompanySize || "";
+  if (currCompanySize && currCompanySize !== '-1') {
+    query['companySize'] = currCompanySize;
+  }
+  let currFinanceStage = req.body.currFinanceStage || "";
+  if (currFinanceStage && currFinanceStage !== '-1') {
+    query['financeStage'] = currFinanceStage;
+  }
+  let pageNo = req.body.pageNo || 1;
   myDb.connect().then(dbObj => {
     dbObj.collection("job", function (err, collection) {
       if (err) {
@@ -175,7 +251,6 @@ router.post('/pageList', function(req, res, next) {
               total: total
             }
           })
-          // db.close();
         });
       })
     })
@@ -226,17 +301,11 @@ router.post('/pageCollectionList', function(req, res, next) {
   if (authorization.length) {
     let decoded = jwt.decode(authorization.split(' ')[1]);
     let openid = decoded['openid'];
-    MongoClient.connect(dbAddress, function(err, db) {
-      if (err) {
-        console.error(err)
-        db.close();
-      };
-      let dbObj = db.db("gpbase");
+    myDb.connect().then(dbObj => {
       dbObj.collection("user")
         .findOne({'openId':openid}, function(err, result) {
           if (err) {
             console.error(err);
-            db.close();
           }
           if (!result) {
             res.json({
@@ -250,7 +319,6 @@ router.post('/pageCollectionList', function(req, res, next) {
             let query = {};
             dbObj.collection("job", function (err, collection) {
               if (err) {
-                db.close();
                 throw err;
               }
               let colleIds = colleArr.map(curr => {
@@ -265,7 +333,6 @@ router.post('/pageCollectionList', function(req, res, next) {
                 .sort({'createTime': -1})
                 .toArray(function(err, result) {
                   if (err) {
-                    db.close();
                     throw err;
                   }
                   res.json({
@@ -276,7 +343,6 @@ router.post('/pageCollectionList', function(req, res, next) {
                       total: total
                     }
                   })
-                  db.close();
                 });
               })
             })
@@ -288,27 +354,10 @@ router.post('/pageCollectionList', function(req, res, next) {
 
 router.get('/getJobDetail', function(req, res, next) {
   let id = req.query.id;
-  MongoClient.connect(dbAddress, function(err, db) {
-    if (err) {
-      console.error(err)
-      db.close();
-      res.json({
-        success: false,
-        msg: '查询失败'
-      })
-    };
-    let dbObj = db.db("gpbase");
+  myDb.connect().then(dbObj => {
     dbObj.collection("job")
         .findOne({'_id': ObjectId(id)})
         .then((result) => {
-          if (err) {
-            console.error(err);
-            db.close();
-            res.json({
-              success: false,
-              msg: '查询失败'
-            })
-          }
           if (result.isComplete) {
             res.json({
               success: true,
@@ -348,6 +397,7 @@ router.get('/getJobDetail', function(req, res, next) {
                         workAddr = workAddrText;
                       }
                       console.log('id', id);
+                      console.log('jobDetail', jobDetail);
                       dbObj.collection("job").updateOne({_id: ObjectId(id)}, {
                         $set: {
                           jobDetail: jobDetail,
@@ -358,20 +408,10 @@ router.get('/getJobDetail', function(req, res, next) {
                         dbObj.collection("job")
                           .findOne({'_id': ObjectId(id)})
                           .then((result) => {
-                            if (err) {
-                              console.error(err);
-                              db.close();
-                              res.json({
-                                success: false,
-                                msg: '查询失败'
-                              })
-                            } else {
-                              res.json({
-                                success: true,
-                                result: result
-                              })
-                              db.close();
-                            }
+                            res.json({
+                              success: true,
+                              result: result
+                            })
                           })
                       })
                     }
@@ -379,12 +419,10 @@ router.get('/getJobDetail', function(req, res, next) {
                   } catch (e) {
                     console.error(e);
                     done();
-                    db.close();
                   }
                 }
             }])
           }
-          db.close();
         });
   })
 });
@@ -395,17 +433,11 @@ router.get('/getUserCollectionById', function(req, res, next) {
   if (authorization.length) {
     let decoded = jwt.decode(authorization.split(' ')[1]);
     let openid = decoded['openid'];
-    MongoClient.connect(dbAddress, function(err, db) {
-      if (err) {
-        console.error(err)
-        db.close();
-      };
-      let dbObj = db.db("gpbase");
+    myDb.connect().then(dbObj => {
       dbObj.collection("user")
         .findOne({'openId':openid}, function(err, result) {
           if (err) {
             console.error(err);
-            db.close();
           }
           if (!result) {
             res.json({
@@ -430,7 +462,6 @@ router.get('/getUserCollectionById', function(req, res, next) {
               })
             }
           }
-          db.close();
         });
     })
   } else {
@@ -447,22 +478,16 @@ router.get('/setUserCollection', function(req, res, next) {
   if (authorization.length) {
     let decoded = jwt.decode(authorization.split(' ')[1]);
     let openid = decoded['openid'];
-    MongoClient.connect(dbAddress, function(err, db) {
-      if (err) {
-        console.error(err)
-        db.close();
-      };
-      let dbObj = db.db("gpbase");
+    myDb.connect().then(dbObj => {
       dbObj.collection("user").update({"openId":openid},{"$addToSet":{"collection":jobId}}, function(err, result) {
         if (err) {
-
+          console.error(err);
         } else {
           res.json({
             success: true,
             msg: '收藏成功'
           })
         }
-        db.close();
       })
       /* dbObj.collection("user")
         .findOne({'openId':openid}, function(err, result) {
@@ -489,22 +514,16 @@ router.get('/delUserCollection', function(req, res, next) {
   if (authorization.length) {
     let decoded = jwt.decode(authorization.split(' ')[1]);
     let openid = decoded['openid'];
-    MongoClient.connect(dbAddress, function(err, db) {
-      if (err) {
-        console.error(err)
-        db.close();
-      };
-      let dbObj = db.db("gpbase");
+    myDb.connect().then(dbObj => {
       dbObj.collection("user").update({"openId":openid},{"$pull":{"collection":jobId}}, function(err, result) {
         if (err) {
-
+          console.error(err);
         } else {
           res.json({
             success: true,
             msg: '取消收藏成功'
           })
         }
-        db.close();
       })
     })
   }

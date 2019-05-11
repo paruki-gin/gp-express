@@ -10,15 +10,11 @@ const fs = require('fs');
 const events = require("events");
 const dbAddress = require("../config/index");
 const WXBizDataCrypt = require('../utils/WXBizDataCrypt');
+const myDb = require('../utils/db');
 
 router.get('/pageLog', function(req, res, next) {
   let query = {};
-  MongoClient.connect(dbAddress, function(err, db) {
-    if (err) {
-      console.error(err)
-      db.close();
-    };
-    let dbObj = db.db("gpbase");
+  myDb.connect().then(dbObj => {
     dbObj.collection("crawlerLog", function (err, collection) {
       if (err) {
         dbObj.close();
@@ -54,15 +50,9 @@ router.post('/pageJobList', function(req, res, next) {
   let pageNo = req.body.pageNo || 1;
   let pageSize = req.body.pageSize || 10;
   let query = {};
-  MongoClient.connect(dbAddress, function(err, db) {
-    if (err) {
-      console.error(err)
-      db.close();
-    };
-    let dbObj = db.db("gpbase");
+  myDb.connect().then(dbObj => {
     dbObj.collection("job", function (err, collection) {
       if (err) {
-        dbObj.close();
         throw err;
       }
       collection.count(query, function (err, total) {

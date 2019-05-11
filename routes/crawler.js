@@ -10,7 +10,8 @@ const superagent = require('superagent');
 const fs = require('fs');
 const events = require("events");
 const dbAddress = require("../config/index");
-let  emitter = new events.EventEmitter();
+const myDb = require('../utils/db');
+let emitter = new events.EventEmitter();
 
 function insertCrawlerLog(dbObj, msg) {
   dbObj.collection("crawlerLog").insert({
@@ -28,8 +29,7 @@ function insertCrawlerLog(dbObj, msg) {
 
 router.get('/stop', function(req, res, next) {
   emitter.emit("stop_crawler");
-  MongoClient.connect(dbAddress, function(err, db) {
-    let dbObj = db.db("gpbase");
+  myDb.connect().then(dbObj => {
     insertCrawlerLog(dbObj, `停止爬取操作`);
   })
   res.json({
@@ -46,8 +46,7 @@ router.post('/test', function(req, res, next) {
 });
 
 router.get('/ttt', function(req, res, next) {
-  MongoClient.connect(dbAddress, function(err, db) {
-    let dbObj = db.db("gpbase");
+  myDb.connect().then(dbObj => {
     // let test = dbObj.collection("menu").findOne({'link': 'https://www.lagou.com/zhaopin/caiwuzongjianjingli/'});
     // test.then((res) => {
     //   console.log('res', res.name);
@@ -90,11 +89,7 @@ router.post('/crawlJobData', function(req, res, next) {
     stop = true;
   });
 
-  MongoClient.connect(dbAddress, function(err, db) {
-    if (err) {
-      console.error(err)
-      db.close();
-    };
+  myDb.connect().then(dbObj => {
     let dbObj = db.db("gpbase");
     let urlList = [];
     dbObj.collection("menu")
@@ -126,11 +121,9 @@ router.post('/crawlJobData', function(req, res, next) {
             if (page > maxPage) {
               console.log('达到页面上限');
               insertCrawlerLog(dbObj, '达到页面上限');
-              db.close();
               return;
             }
             if (stop) {
-              db.close();
               return;
             } else {
               done();
@@ -158,7 +151,6 @@ router.post('/crawlJobData', function(req, res, next) {
           },
           callback : function (error, res, done) {
             if (stop) {
-              db.close();
               return;
             }
             // if (error) {
@@ -220,7 +212,7 @@ router.post('/crawlJobData', function(req, res, next) {
                     companyId: $item.attr('data-companyid'),
                     companyName: $item.find('.company_name').find('a').text(),
                     companyUrl: $item.find('.company_name').find('a').attr('href'),
-                    industryField: industry.split('/')[0].split(','), //行业领域
+                    industryField: industry.split('/')[0].split(/\s|,/), //行业领域
                     financeStage: industry.split('/')[1],  //融资
                     companySize: industry.split('/')[2],  //规模
                     positionId: $item.attr('data-positionid'),
@@ -287,7 +279,6 @@ router.post('/crawlJobData', function(req, res, next) {
             } catch (e) {
               console.log(e);
               done();
-              db.close();
             }
           }
         });
@@ -296,7 +287,6 @@ router.post('/crawlJobData', function(req, res, next) {
       .catch((e) =>{
         console.error(e)
         insertCrawlerLog(dbObj, `${e}`);
-        db.close();
       })
     res.json({
       'success': 'true',
@@ -315,12 +305,7 @@ router.get('/crawlMenuData', function(req, res, next) {
     stop = true;
   });
 
-  MongoClient.connect(dbAddress, function(err, db) {
-    if (err) {
-      console.error(err)
-      db.close();
-    };
-    let dbObj = db.db("gpbase");
+  myDb.connect().then(dbObj => {
     let crawler = new Crawler();
     crawler.queue([
       {
@@ -333,7 +318,6 @@ router.get('/crawlMenuData', function(req, res, next) {
         },
         callback: function (error, res, done) {
           if (stop) {
-            db.close();
             return;
           }
           try {
@@ -372,7 +356,6 @@ router.get('/crawlMenuData', function(req, res, next) {
             console.error(e);
             insertCrawlerLog(dbObj, `${e}`);
             done();
-            db.close();
           }
         }
     }])
