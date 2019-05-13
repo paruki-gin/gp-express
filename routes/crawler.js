@@ -13,10 +13,11 @@ const dbAddress = require("../config/index");
 const myDb = require('../utils/db');
 let emitter = new events.EventEmitter();
 
-function insertCrawlerLog(dbObj, msg) {
+function insertCrawlerLog(dbObj, msg, status) {
   dbObj.collection("crawlerLog").insert({
     msg: msg,
-    time: new Date().getTime()+''
+    time: new Date().getTime()+'',
+    status: status
   }, function(err, res) {
     if (err) throw err;
   })
@@ -30,7 +31,7 @@ function insertCrawlerLog(dbObj, msg) {
 router.get('/stop', function(req, res, next) {
   emitter.emit("stop_crawler");
   myDb.connect().then(dbObj => {
-    insertCrawlerLog(dbObj, `停止爬取操作`);
+    insertCrawlerLog(dbObj, `停止爬取操作`, 0);
   })
   res.json({
     'success': 'true',
@@ -38,44 +39,29 @@ router.get('/stop', function(req, res, next) {
   });
 });
 
-router.post('/test', function(req, res, next) {
-  const { city, keyword } = req.body;
-  console.log('start');
-  let data = crawlerTest.requestController(city, keyword);
-  res.send(data);
-});
+// router.post('/test', function(req, res, next) {
+//   const { city, keyword } = req.body;
+//   console.log('start');
+//   let data = crawlerTest.requestController(city, keyword);
+//   res.send(data);
+// });
 
-router.get('/ttt', function(req, res, next) {
+router.get('/getMenuList', function(req, res, next) {
   myDb.connect().then(dbObj => {
-    // let test = dbObj.collection("menu").findOne({'link': 'https://www.lagou.com/zhaopin/caiwuzongjianjingli/'});
-    // test.then((res) => {
-    //   console.log('res', res.name);
-    // })
-    dbObj.collection("job").updateOne({positionId: '5228283'}, {
-      $set: {
-        jobDetail: `        <p>岗位职责：</p>
-        <p>1.协助财务总监管理财务中心内部各项事务，协调处理内部及外部的关系，对财务总监负责，领导下属依法开展财会工作。</p>
-        <p>2.组织公司下属部门公司的财务管理、应收账款方面工作，合理筹划收入与应收款项、预收账款的管理，监督资金收入的合法及完整性，提高资金利用率。</p>
-        <p>3.组织配合绩效管理体系，制定财务内部相关指标，负责下属的绩效考核，并组织下属按要求完成各项任务指标。</p>
-        <p>4.对票据、凭证的真伪予以鉴别，对不合理票据、虚假票据、凭证进行监督和控制。</p>
-        <p>5.组织制定本部门年度及季度财务预算。</p>
-        <p>6.根据发展需要，协助财务总监对财务管理工作进行研究、布置、检查、总结，并不断改进和完善。</p>
-        <p>7.参与经营决策，组织开展各项经济分析活动，为公司领导提供经济预测和经营决策依据。</p>
-        <p>8.参与制订公司年度总预算和季度预算调整，协助财务总监汇总、审核下级部门上报的月度预算，负责审核签署公司预算、财务收入计划、成本费用计划、会计决算报表。</p>
-        <p>9.负责重要内审活动的组织与实施。</p>
-        <p>10.组织审查或参与拟定经济合同、协议等经济文件，按财务管理要求做好各项合同的收款管理。</p>
-        <p><br></p>
-        <p>岗位要求：</p>
-        <p>1.拥有5年以上财务或3年以上财务主管工作经验；</p>
-        <p>2.性别不限，财务管理或会计专业本科以上学历；</p>
-        <p>3.拥有中级职称或具有上市公司财务工作经验者优先；</p>
-        <p>4.为人正直、责任心强、作风严谨、工作仔细认真，有较强的沟通协调及团队管理能力。</p>`
+    dbObj.collection("menu").find({}, {name: 1}).toArray(function(err, result) {
+      if (err) {
+        res.json({
+          success: false
+        })
+        throw err;
       }
-    }).then((res) => {
-      console.log('ok');
+      res.json({
+        success: true,
+        result
+      })
     })
   })
-})
+});
 
 router.post('/crawlJobData', function(req, res, next) {
   let location = '';
@@ -90,7 +76,6 @@ router.post('/crawlJobData', function(req, res, next) {
   });
 
   myDb.connect().then(dbObj => {
-    let dbObj = db.db("gpbase");
     let urlList = [];
     dbObj.collection("menu")
       .find({"name":{"$in":menuNameArr}})
@@ -102,7 +87,7 @@ router.post('/crawlJobData', function(req, res, next) {
           }
         })
         console.log('URLList',urlList)
-        insertCrawlerLog(dbObj, `URL总数 ${urlList.length}`);
+        insertCrawlerLog(dbObj, `开始 URL总数 ${urlList.length}`, 1);
         console.log(`URL总数 ${urlList.length}`)
         // crawler.queue(urlList);
       })
@@ -111,7 +96,9 @@ router.post('/crawlJobData', function(req, res, next) {
         let crawler = new Crawler({
           preRequest: function(options, done) {
             options['headers']['Cookie'] = 'index_location_city='+encodeURI(location);
-            insertCrawlerLog(dbObj, `当前url ${options['uri']}`);
+            if (!stop) {
+              insertCrawlerLog(dbObj, `当前url ${options['uri']}`, 1);
+            }
             let page = +options['uri'].split('/')[5];
             dbObj.collection("menu")
               .findOne({'link': {$regex: options['uri'].split('/')[4]}})
@@ -120,10 +107,11 @@ router.post('/crawlJobData', function(req, res, next) {
               });
             if (page > maxPage) {
               console.log('达到页面上限');
-              insertCrawlerLog(dbObj, '达到页面上限');
+              insertCrawlerLog(dbObj, `达到页面上限 终止爬取`, 0);
               return;
             }
             if (stop) {
+              insertCrawlerLog(dbObj, `终止爬取`, 0);
               return;
             } else {
               done();
@@ -201,46 +189,132 @@ router.post('/crawlJobData', function(req, res, next) {
                   } else {
                     formatTime = moment(formatTimeText).valueOf();
                   }
+                  //经验
+                  let workYearStr = experienceText.split('/')[0];
+                  let workYear = '';
+                  if (workYearStr === '经验应届毕业生') {
+                    workYear = '0';
+                  } else if (workYearStr === '经验1年以下') {
+                    workYear = '1';
+                  } else if (workYearStr === '经验1-3年') {
+                    workYear = '2';
+                  } else if (workYearStr === '经验3-5年') {
+                    workYear = '3';
+                  } else if (workYearStr === '经验5-10年') {
+                    workYear = '4';
+                  } else if (workYearStr === '经验10年以上') {
+                    workYear = '5';
+                  } else if (workYearStr === '经验不限') {
+                    workYear = '6';
+                  }
+                  //融资
+                  let financeStageStr = industry.split('/')[1];
+                  let financeStage = '';
+                  if (financeStageStr === '未融资') {
+                    financeStage = '0';
+                  } else if (financeStageStr === '天使轮') {
+                    financeStage = '1';
+                  } else if (financeStageStr === 'A轮') {
+                    financeStage = '2';
+                  } else if (financeStageStr === 'B轮') {
+                    financeStage = '3';
+                  } else if (financeStageStr === 'C轮') {
+                    financeStage = '4';
+                  } else if (financeStageStr === 'D轮及以上') {
+                    financeStage = '5';
+                  } else if (financeStageStr === '上市公司') {
+                    financeStage = '6';
+                  } else if (financeStageStr === '不需要融资') {
+                    financeStage = '7';
+                  }
+                  //规模
+                  let companySizeStr = industry.split('/')[2];
+                  let companySize = '';
+                  if (companySizeStr === '少于15人') {
+                    companySize = '0';
+                  } else if (companySizeStr === '15-50人') {
+                    companySize = '1';
+                  } else if (companySizeStr === '50-150人') {
+                    companySize = '2';
+                  } else if (companySizeStr === '150-500人') {
+                    companySize = '3';
+                  } else if (companySizeStr === '500-2000人') {
+                    companySize = '4';
+                  } else if (companySizeStr === '2000人以上') {
+                    companySize = '5';
+                  }
+                  //月薪
+                  let salaryStr = $item.find('.money').text();
+                  let salaryArr = salaryStr.replace(/[kK]/g,'').split('-');
+                  let salaryMin = salaryArr[0];
+                  let salaryMax = salaryArr[1];
+                  let salaryStage = [];
+                  //判断区间是否交叉
+                  //start2 <= end1 && end2 >= start1
+                  if (0 <= salaryMax && 2 >= salaryMin) {
+                    salaryStage.push('0');
+                  }
+                  if (2 <= salaryMax && 5 >= salaryMin) {
+                    salaryStage.push('1');
+                  }
+                  if (5 <= salaryMax && 10 >= salaryMin) {
+                    salaryStage.push('2');
+                  }
+                  if (10 <= salaryMax && 15 >= salaryMin) {
+                    salaryStage.push('3');
+                  }
+                  if (15 <= salaryMax && 25 >= salaryMin) {
+                    salaryStage.push('4');
+                  }
+                  if (25 <= salaryMax && 50 >= salaryMin) {
+                    salaryStage.push('5');
+                  }
+                  if (50 <= salaryMax && 100 >= salaryMin) {
+                    salaryStage.push('6');
+                  }
 
                   jobArr.push({
                     name: $item.find('.position_link').find('h3').text(),
                     category: currCategory,
                     city: city,
                     area: area,
-                    workYear: experienceText.split('/')[0], //经验
+                    workYear: workYear, //经验
                     education: experienceText.split('/')[1],  //学历
                     companyId: $item.attr('data-companyid'),
                     companyName: $item.find('.company_name').find('a').text(),
                     companyUrl: $item.find('.company_name').find('a').attr('href'),
                     industryField: industry.split('/')[0].split(/\s|,/), //行业领域
-                    financeStage: industry.split('/')[1],  //融资
-                    companySize: industry.split('/')[2],  //规模
+                    financeStage: financeStage,  //融资
+                    companySize: companySize,  //规模
                     positionId: $item.attr('data-positionid'),
                     hrId: $item.attr('data-hrid'),
                     detailLink: $item.find('a').attr('href'), //详情链接
                     companyLogo: 'https:'+$item.find('.com_logo').find('img').attr('src'),
                     salary: $item.find('.money').text(),  //薪资
+                    salaryMin: salaryMin,
+                    salaryMax: salaryMax,
+                    salaryStage: salaryStage,
                     industryLables: industryLables, //公司标签
                     positionAdvantage:$item.find('.li_b_r').text().replace(/^\“|\”$/g,''), //公司简介
                     formatTime: formatTime+'',
-                    createTime: (new Date()).valueOf()+'',
-                    updateTime: (new Date()).valueOf()+'',
+                    // createTime: (new Date()).valueOf()+'',
+                    // updateTime: (new Date()).valueOf()+'',
                     status: 1,  //状态 初始1-生效
                     isComplete: 0 //信息是否完整 初始0-不完整
                   });
                 });
                 console.log(`total page ${crawler.queueSize}`);
                 console.log(`pageSize ${jobArr.length}`);
-                insertCrawlerLog(dbObj, `total page ${crawler.queueSize}`);
-                insertCrawlerLog(dbObj, `pageSize ${jobArr.length}`);
+                insertCrawlerLog(dbObj, `total page ${crawler.queueSize}`, 1);
+                insertCrawlerLog(dbObj, `pageSize ${jobArr.length}`, 1);
                 if (jobArr.length === 0) {
                   console.log('无数据, 停止爬取');
-                  insertCrawlerLog(dbObj, '无数据, 停止爬取')
+                  insertCrawlerLog(dbObj, '无数据, 停止爬取', 0)
                   return;
                 }
                 if (crawler.queueSize === 0) {
                   console.log('爬取结束');
-                  insertCrawlerLog(dbObj, '爬取结束')
+                  insertCrawlerLog(dbObj, 'Url清空 爬取结束', 0)
                   return;
                 }
                 if(jobArr.length > 0 ){
@@ -254,9 +328,13 @@ router.post('/crawlJobData', function(req, res, next) {
                       });
                     }).then((result) => {
                       if (result == 0) {
-                        dbObj.collection("job").insert(jobArr[i], function(err, res) {
+                        dbObj.collection("job").insert({
+                          ...jobArr[i],
+                          createTime: (new Date()).valueOf()+'',
+                          updateTime: (new Date()).valueOf()+''
+                        }, function(err, res) {
                           if (err) throw err;
-                          insertCrawlerLog(dbObj, `insert ${jobArr[i]['positionId']}`)
+                          insertCrawlerLog(dbObj, `insert ${jobArr[i]['positionId']}`, 1)
                         })
                       } else {
                         // dbObj.collection("job").update(jobArr[i], jobArr[i], function(err, res) {
@@ -264,16 +342,19 @@ router.post('/crawlJobData', function(req, res, next) {
                         //   insertCrawlerLog(dbObj, `update ${jobArr[i]['positionId']}`)
                         // })
                         dbObj.collection("job").update({positionId: jobArr[i]['positionId']}, {
-                          $set: jobArr[i]
+                          $set: {
+                            ...jobArr[i],
+                            updateTime: (new Date()).valueOf()+''
+                          }
                         }, function(err, res) {
                           if (err) throw err;
-                          insertCrawlerLog(dbObj, `update ${jobArr[i]['positionId']}`)
+                          insertCrawlerLog(dbObj, `update ${jobArr[i]['positionId']}`, 1)
                         })
                       }
                     });
                   }
                   console.log('job表写入成功')
-                  insertCrawlerLog(dbObj, 'job表写入成功')
+                  insertCrawlerLog(dbObj, 'job表写入成功', 1)
                 }
                 done();
               }
@@ -287,7 +368,7 @@ router.post('/crawlJobData', function(req, res, next) {
       })
       .catch((e) =>{
         console.error(e)
-        insertCrawlerLog(dbObj, `${e}`);
+        insertCrawlerLog(dbObj, `错误 ${e}`, 0);
       })
     res.json({
       'success': 'true',
@@ -342,7 +423,7 @@ router.get('/crawlMenuData', function(req, res, next) {
               });
               //把首页爬取的menu URL数据加入到需要爬取的队列中
               // crawler.queue(urlList);
-              insertCrawlerLog(dbObj, `菜单项总数 ${menuList.length}`);
+              // insertCrawlerLog(dbObj, `菜单项总数 ${menuList.length}`);
               // insertCrawlerLog(dbObj, `URLList ${urlList}`);
               // insertCrawlerLog(dbObj, `URL总数 ${urlList.length}`);
               for (let i = 0; i < menuList.length; i++) {
@@ -350,12 +431,12 @@ router.get('/crawlMenuData', function(req, res, next) {
                   if (err) throw err;
                 })
               }
-              insertCrawlerLog(dbObj, 'menu表写入成功');
+              // insertCrawlerLog(dbObj, 'menu表写入成功');
             }
             done();
           } catch (e) {
             console.error(e);
-            insertCrawlerLog(dbObj, `${e}`);
+            // insertCrawlerLog(dbObj, `${e}`);
             done();
           }
         }
@@ -368,53 +449,53 @@ router.get('/crawlMenuData', function(req, res, next) {
 });
 
 
-router.post('/bossZP', function(req, res, next) {
-  let city = '杭州';
-  let query = '前端';
-  superagent
-    .get("https://www.zhipin.com/job_detail/?city=100010000&source=10&query="+encodeURI(query))
-    .end((error,response)=>{
-        var content = response.text;
-        var $ = cheerio.load(content);
-        var result=[];
-        //分析文档结构  先获取每个li 再遍历里面的内容(此时每个li里面就存放着我们想要获取的数据)
-        $(".job-list li .job-primary").each((index,value)=>{
-            //地址和类型为一行显示，需要用到字符串截取
-            //地址
-            let address=$(value).find(".info-primary").children().eq(1).html();
-            //类型
-            let type=$(value).find(".info-company p").html();
-            //解码
-            address=unescape(address.replace(/&#x/g,'%u').replace(/;/g,''));
-            type=unescape(type.replace(/&#x/g,'%u').replace(/;/g,''))
-            //字符串截取
-            let addressArr=address.split('<em class="vline"></em>');
-            let typeArr=type.split('<em class="vline"></em>');
-            //将获取的数据以对象的形式添加到数组中
-            result.push({
-              title:$(value).find(".name .job-title").text(),
-              money:$(value).find(".name .red").text(),
-              address:addressArr,
-              company:$(value).find(".info-company a").text(),
-              type:typeArr,
-              position:$(value).find(".info-publis .name").text(),
-              txImg:$(value).find(".info-publis img").attr("src"),
-              time:$(value).find(".info-publis p").text()
-            });
-            // console.log(typeof $(value).find(".info-primary").children().eq(1).html());
-        });
-        //将数组转换成字符串
-        result=JSON.stringify(result);
-        //将数组输出到json文件里  刷新目录 即可看到当前文件夹多出一个boss.json文件(打开boss.json文件，ctrl+A全选之后 ctrl+K，再Ctrl+F即可将json文件自动排版)
-        fs.writeFile("boss.json",result,"utf-8",(error)=>{
-            //监听错误，如正常输出，则打印null
-            if(error==null){
-                console.log("success");
-            }
-        });
-    });
-    res.json({'success': 'true'});
-});
+// router.post('/bossZP', function(req, res, next) {
+//   let city = '杭州';
+//   let query = '前端';
+//   superagent
+//     .get("https://www.zhipin.com/job_detail/?city=100010000&source=10&query="+encodeURI(query))
+//     .end((error,response)=>{
+//         var content = response.text;
+//         var $ = cheerio.load(content);
+//         var result=[];
+//         //分析文档结构  先获取每个li 再遍历里面的内容(此时每个li里面就存放着我们想要获取的数据)
+//         $(".job-list li .job-primary").each((index,value)=>{
+//             //地址和类型为一行显示，需要用到字符串截取
+//             //地址
+//             let address=$(value).find(".info-primary").children().eq(1).html();
+//             //类型
+//             let type=$(value).find(".info-company p").html();
+//             //解码
+//             address=unescape(address.replace(/&#x/g,'%u').replace(/;/g,''));
+//             type=unescape(type.replace(/&#x/g,'%u').replace(/;/g,''))
+//             //字符串截取
+//             let addressArr=address.split('<em class="vline"></em>');
+//             let typeArr=type.split('<em class="vline"></em>');
+//             //将获取的数据以对象的形式添加到数组中
+//             result.push({
+//               title:$(value).find(".name .job-title").text(),
+//               money:$(value).find(".name .red").text(),
+//               address:addressArr,
+//               company:$(value).find(".info-company a").text(),
+//               type:typeArr,
+//               position:$(value).find(".info-publis .name").text(),
+//               txImg:$(value).find(".info-publis img").attr("src"),
+//               time:$(value).find(".info-publis p").text()
+//             });
+//             // console.log(typeof $(value).find(".info-primary").children().eq(1).html());
+//         });
+//         //将数组转换成字符串
+//         result=JSON.stringify(result);
+//         //将数组输出到json文件里  刷新目录 即可看到当前文件夹多出一个boss.json文件(打开boss.json文件，ctrl+A全选之后 ctrl+K，再Ctrl+F即可将json文件自动排版)
+//         fs.writeFile("boss.json",result,"utf-8",(error)=>{
+//             //监听错误，如正常输出，则打印null
+//             if(error==null){
+//                 console.log("success");
+//             }
+//         });
+//     });
+//     res.json({'success': 'true'});
+// });
 
 // router.get('/crawlJobData', function(req, res, next) {
 //   let menuList = [];

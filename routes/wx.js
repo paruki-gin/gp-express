@@ -222,7 +222,9 @@ router.get('/logout', function(req, res, next) {
 })
 
 router.post('/pageList', function(req, res, next) {
-  let query = {};
+  let query = {
+    status: 1
+  };
   let currRegion = req.body.currRegion || "";
   if (currRegion) {
     currRegion = currRegion.substr(0, currRegion.length - 1);
@@ -350,10 +352,18 @@ router.post('/pageCollectionList', function(req, res, next) {
               });
               console.log('colleArr', colleIds);
               collection.count({ _id : { $in : colleIds }}, function (err, total) {
-                collection.find({ _id : { $in : colleIds }}, {
-                  skip: (pageNo-1)*15,
-                  limit: 15
-                })
+                collection.find(
+                  {
+                    _id: {
+                      $in : colleIds
+                    },
+                    status: 1
+                  },
+                  {
+                    skip: (pageNo-1)*15,
+                    limit: 15
+                  }
+                )
                 .sort({'createTime': -1})
                 .toArray(function(err, result) {
                   if (err) {

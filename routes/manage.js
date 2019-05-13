@@ -110,6 +110,25 @@ router.get('/getTagCloud', function(req, res, next) {
   })
 });
 
+router.get('/getCrawlerStatus', function(req, res, next) {
+  myDb.connect().then(dbObj => {
+    dbObj.collection("crawlerLog")
+      .find()
+      .sort({'time': -1})
+      .limit(1)
+      .toArray((err, result) => {
+      if (err) {
+        throw err;
+      }
+      res.json({
+        success: true,
+        result: result
+      })
+    });
+  })
+});
+
+
 
 router.get('/pageLog', function(req, res, next) {
   let query = {};
