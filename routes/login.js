@@ -17,23 +17,32 @@ router.post('/account', function(req, res, next) {
           console.error(err);
         }
         if (result.password === md5Value) {
-          dbObj.collection("admin").update({"_id":ObjectId(result._id)},{"$set":{"latesetTime":(new Date()).valueOf()+''}}, function(err, result) {
-            if (err) {
-              console.error(err);
-            } else {
-              let token = jwt.sign({
-                userName: result.userName,
-                password: result.password
-              }, secretKey, {
-                expiresIn: '1d'
-              })
-              res.send({
-                status: 'ok',
-                type,
-                currentAuthority: 'admin',
-                token: token
-              });
-            }
+          dbObj.collection("admin").update(
+            {
+              "_id":ObjectId(result._id)
+            },
+            {"$set":
+              {
+              "latesetTime":(new Date()).valueOf()+''
+              }
+            }, function(error, ress) {
+              if (error) {
+                console.error(error);
+              } else {
+                console.log(result)
+                let token = jwt.sign({
+                  userName: result.userName,
+                  name: result.nickName
+                }, secretKey, {
+                  expiresIn: '1d'
+                })
+                res.send({
+                  status: 'ok',
+                  type,
+                  currentAuthority: 'admin',
+                  token: token
+                });
+              }
           })
         } else {
           res.send({

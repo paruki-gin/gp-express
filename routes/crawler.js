@@ -223,7 +223,8 @@ router.post('/crawlJobData', function(req, res, next) {
                     industryLables: industryLables, //公司标签
                     positionAdvantage:$item.find('.li_b_r').text().replace(/^\“|\”$/g,''), //公司简介
                     formatTime: formatTime+'',
-                    createTime: Date.parse(new Date())+'',
+                    createTime: (new Date()).valueOf()+'',
+                    updateTime: (new Date()).valueOf()+'',
                     status: 1,  //状态 初始1-生效
                     isComplete: 0 //信息是否完整 初始0-不完整
                   });

@@ -68,6 +68,7 @@ router.get('/changeData', function(req, res, next) {
             }, function(err, res) {
               if (err) throw err;
             })
+
             // dbObj.collection("job").updateOne({_id: ObjectId(id)}, {
             //   $set: {
             //     jobDetail: jobDetail,
@@ -158,10 +159,28 @@ router.post('/login', function(req, res, next) {
                   console.error(err);
                 }
                 if (!result) {
-                  dbObj.collection("user").insert(userInfo, function(err, res) {
+                  dbObj.collection("user").insert({
+                    userInfo,
+                    latesetTime: (new Date()).valueOf()+''
+                  }, function(err, res) {
                     if (err) throw err;
                   })
                 } else {
+                  dbObj.collection("user").update(
+                    {
+                      "openId":openid
+                    },
+                    {"$set":
+                      {
+                      "latesetTime":(new Date()).valueOf()+''
+                      }
+                    }, function(error, ress) {
+                      if (error) {
+                        console.error(error);
+                      } else {
+                        console.log(ress)
+                      }
+                  })
                 }
               });
             let token = jwt.sign(tokenObj, secretKey, {
@@ -211,6 +230,7 @@ router.post('/pageList', function(req, res, next) {
   }
   let currInput = req.body.currInput || "";
   if (currInput) {
+    name = name.replace(/([\^\$\(\)\*\+\?\.\\\|\[\]\{\}])/g, "\\$1");
     query['name'] = new RegExp(currInput, 'i');
   }
   let currSalary = req.body.currSalary || "";
@@ -406,7 +426,8 @@ router.get('/getJobDetail', function(req, res, next) {
                         $set: {
                           jobDetail: jobDetail,
                           workAddr: workAddr,
-                          isComplete: 1
+                          isComplete: 1,
+                          updateTime: (new Date()).valueOf()+''
                         }
                       }).then(() => {
                         dbObj.collection("job")
