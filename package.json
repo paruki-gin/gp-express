@@ -24,5 +24,8 @@
     "mongodb": "^3.2.3",
     "morgan": "~1.9.0",
     "superagent": "^5.0.2"
+  },
+  "devDependencies": {
+    "utility": "^1.16.1"
   }
 }

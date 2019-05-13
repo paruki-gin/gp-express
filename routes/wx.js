@@ -1,18 +1,18 @@
 const express = require('express');
 const router = express.Router();
-const cheerio = require('cheerio');
 const Crawler = require("crawler");
-const MongoClient = require('mongodb').MongoClient;
 const ObjectId = require('mongodb').ObjectId;
-const moment = require('moment');
 const superagent = require('superagent');
-const fs = require('fs');
-const events = require("events");
-const dbAddress = require("../config/index");
 const WXBizDataCrypt = require('../utils/WXBizDataCrypt');
 const jwt = require("jsonwebtoken");
 const { MD5_SUFFIX, md5, secretKey } = require('../utils/constant');
 const myDb = require('../utils/db');
+// const cheerio = require('cheerio');
+// const MongoClient = require('mongodb').MongoClient;
+// const moment = require('moment');
+// const fs = require('fs');
+// const events = require("events");
+// const dbAddress = require("../config/index");
 
 router.get('/changeData', function(req, res, next) {
   // var str="10k-20K";
@@ -205,6 +205,10 @@ router.get('/logout', function(req, res, next) {
 router.post('/pageList', function(req, res, next) {
   let query = {};
   let currRegion = req.body.currRegion || "";
+  if (currRegion) {
+    currRegion = currRegion.substr(0, currRegion.length - 1);
+    query['$or'] = [{city: currRegion}, {area:currRegion}];
+  }
   let currInput = req.body.currInput || "";
   if (currInput) {
     query['name'] = new RegExp(currInput, 'i');

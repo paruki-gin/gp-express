@@ -12,12 +12,30 @@ const dbAddress = require("../config/index");
 const WXBizDataCrypt = require('../utils/WXBizDataCrypt');
 const myDb = require('../utils/db');
 
+router.get('/getTagCloud', function(req, res, next) {
+  let query = {};
+  myDb.connect().then(dbObj => {
+    dbObj.collection("job").aggregate([{$unwind:"$industryLables"},{$group : {_id : "$industryLables",value: {$sum : 1}}},{$match: {value: {$gt: 5}}}]).toArray((err, result) => {
+      if (err) {
+        throw err;
+      }
+      result.forEach(element => {
+        element['name'] = element['_id']
+      });
+      res.json({
+        success: true,
+        result: result
+      })
+    });
+  })
+});
+
+
 router.get('/pageLog', function(req, res, next) {
   let query = {};
   myDb.connect().then(dbObj => {
     dbObj.collection("crawlerLog", function (err, collection) {
       if (err) {
-        dbObj.close();
         throw err;
       }
       collection.count(query, function (err, total) {
