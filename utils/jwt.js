@@ -14,7 +14,8 @@ const jwtAuth = expressJwt({secret: secretKey}).unless({
     '/api/wx/getUserInfo',
     '/api/wx/getJobDetail',
     '/api/wx/getUserCollectionById',
-    '/api/wx/changeData'
+    '/api/wx/changeData',
+    '/api/wx/test'
   ]
 });
 

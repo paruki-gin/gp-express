@@ -128,7 +128,37 @@ router.get('/getCrawlerStatus', function(req, res, next) {
   })
 });
 
-
+router.get('/getRequestNumByName', function(req, res, next) {
+  let name = req.query['name'] || '/wx/pageList';
+  let query = {
+    request: name
+  };
+  myDb.connect().then(dbObj => {
+    dbObj.collection("requestLog", function (err, collection) {
+      if (err) {
+        throw err;
+      }
+      collection.count(query, function (err, total) {
+        collection.find(query, {
+          // limit: 20
+        })
+        .sort({'timestamp': -1})
+        .toArray(function(err, result) {
+          if (err) {
+            throw err;
+          }
+          res.json({
+            success: true,
+            result: {
+              // data: result,
+              total: total
+            }
+          })
+        });
+      })
+    })
+  })
+});
 
 router.get('/pageLog', function(req, res, next) {
   let query = {};
@@ -436,6 +466,136 @@ router.get('/getUserCollectionList', function(req, res, next) {
           })
         }
       });
+  })
+})
+
+router.post('/pageUserCollectionList', function(req, res, next) {
+  let openId = req.body.openId || "";
+  let pageNo = req.body.pageNo || 1;
+  let pageSize = req.body.pageSize || 10;
+  myDb.connect().then(dbObj => {
+    dbObj.collection("userCollection").aggregate([
+      {
+        $match: {
+          userId: openId
+        }
+      },
+      {
+        $lookup: {
+          from: "job",
+          localField: "jobId",
+          foreignField: "_id",
+          as: "jobs"
+        }
+      },
+      {$project:{"jobId":0,"userId":0}},
+      {$unwind:"$jobs"},
+      {$group: { _id: null, total: { $sum: 1 }}},
+    ]).toArray((err, result) => {
+      if (err) {
+        throw err;
+      }
+      if (result.length) {
+        const total = result[0].total;
+        dbObj.collection("userCollection").aggregate([
+          {
+            $match: {
+              userId: openId
+            }
+          },
+          {
+            $lookup:{
+              from: "job",
+              localField: "jobId",
+              foreignField: "_id",
+              as: "jobs"
+            }
+          },
+          {$project:{"jobId":0,"userId":0}},
+          {$unwind:"$jobs"},
+          {$sort:{"timestamp":-1}},
+          {$skip: (pageNo-1)*pageSize},
+          {$limit: pageSize}
+        ]).toArray((err, result) => {
+          if (err) {
+            throw err;
+          }
+          res.json({
+            success: true,
+            result: {
+              pageNo: pageNo,
+              data: result,
+              total: total
+            }
+          })
+        });
+      }
+    })
+  })
+})
+
+router.post('/pageUserHistoryListById', function(req, res, next) {
+  let openId = req.body.openId || "";
+  let pageNo = req.body.pageNo || 1;
+  let pageSize = req.body.pageSize || 10;
+  myDb.connect().then(dbObj => {
+    dbObj.collection("userHistory").aggregate([
+      {
+        $match: {
+          userId: openId
+        }
+      },
+      {
+        $lookup: {
+          from: "job",
+          localField: "jobId",
+          foreignField: "_id",
+          as: "jobs"
+        }
+      },
+      {$project:{"jobId":0,"userId":0}},
+      {$unwind:"$jobs"},
+      {$group: { _id: null, total: { $sum: 1 }}},
+    ]).toArray((err, result) => {
+      if (err) {
+        throw err;
+      }
+      if (result.length) {
+        const total = result[0].total;
+        dbObj.collection("userHistory").aggregate([
+          {
+            $match: {
+              userId: openId
+            }
+          },
+          {
+            $lookup:{
+              from: "job",
+              localField: "jobId",
+              foreignField: "_id",
+              as: "jobs"
+            }
+          },
+          {$project:{"jobId":0,"userId":0}},
+          {$unwind:"$jobs"},
+          {$sort:{"timestamp":-1}},
+          {$skip: (pageNo-1)*pageSize},
+          {$limit: pageSize}
+        ]).toArray((err, result) => {
+          if (err) {
+            throw err;
+          }
+          res.json({
+            success: true,
+            result: {
+              pageNo: pageNo,
+              data: result,
+              total: total
+            }
+          })
+        });
+      }
+    })
   })
 })
 

@@ -127,7 +127,6 @@ router.post('/crawlJobData', function(req, res, next) {
             'Accept-Language': 'zh-CN,zh;q=0.9',
             'Connection': 'keep-alive',
             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            'Cookie': '',
             'Host': 'www.lagou.com',
             'Origin': 'https://www.lagou.com',
             'Referer': 'https://www.lagou.com/jobs/list_web?city='+encodeURI(location)+'&cl=false&fromSearch=true&labelWords=&suginput=',
