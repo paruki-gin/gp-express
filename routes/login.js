@@ -1,5 +1,5 @@
 const express = require('express');
-const utility=require("utility");
+const utility = require("utility");
 const WXBizDataCrypt = require('../utils/WXBizDataCrypt');
 const jwt = require("jsonwebtoken");
 const { MD5_SUFFIX, md5, secretKey } = require('../utils/constant');
@@ -16,41 +16,50 @@ router.post('/account', function(req, res, next) {
         if (err) {
           console.error(err);
         }
-        if (result.password === md5Value) {
-          dbObj.collection("admin").update(
-            {
-              "_id":ObjectId(result._id)
-            },
-            {"$set":
-              {
-              "latesetTime":(new Date()).valueOf()+''
-              }
-            }, function(error, ress) {
-              if (error) {
-                console.error(error);
-              } else {
-                console.log(result)
-                let token = jwt.sign({
-                  userName: result.userName,
-                  name: result.nickName
-                }, secretKey, {
-                  expiresIn: '1d'
-                })
-                res.send({
-                  status: 'ok',
-                  type,
-                  currentAuthority: 'admin',
-                  token: token
-                });
-              }
-          })
-        } else {
+        if (!result) {
           res.send({
             status: 'error',
             type,
             currentAuthority: 'guest',
           });
+        } else {
+          if (result.password === md5Value && result.status === 1) {
+            dbObj.collection("admin").update(
+              {
+                "_id":ObjectId(result._id)
+              },
+              {"$set":
+                {
+                "latesetTime":(new Date()).valueOf()+''
+                }
+              }, function(error, ress) {
+                if (error) {
+                  console.error(error);
+                } else {
+                  console.log(result)
+                  let token = jwt.sign({
+                    userName: result.userName,
+                    name: result.nickName
+                  }, secretKey, {
+                    expiresIn: '1d'
+                  })
+                  res.send({
+                    status: 'ok',
+                    type,
+                    currentAuthority: 'admin',
+                    token: token
+                  });
+                }
+            })
+          } else {
+            res.send({
+              status: 'error',
+              type,
+              currentAuthority: 'guest',
+            });
+          }
         }
+
       });
   })
 });

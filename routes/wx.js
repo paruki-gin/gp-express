@@ -613,6 +613,16 @@ router.get('/setUserCollection', function(req, res, next) {
           })
         }
       })
+      dbObj.collection("user").update(
+        {
+          openId: openid,
+        },
+        {$inc: {'collection': 1}}, function(err, result) {
+        if (err) {
+          console.error(err);
+        } else {
+        }
+      })
     })
     // myDb.connect().then(dbObj => {
     //   dbObj.collection("user").update({"openId":openid},{"$addToSet":{"collection":jobId}}, function(err, result) {
@@ -654,6 +664,16 @@ router.get('/delUserCollection', function(req, res, next) {
             success: true,
             msg: '取消收藏成功'
           })
+        }
+      })
+      dbObj.collection("user").update(
+        {
+          openId: openid,
+        },
+        {$inc: {'collection': -1}}, function(err, result) {
+        if (err) {
+          console.error(err);
+        } else {
         }
       })
     })

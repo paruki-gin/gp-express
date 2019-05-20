@@ -4,8 +4,6 @@ const jwtAuth = expressJwt({secret: secretKey}).unless({
   path: [
     '/api/auth_routes',
     '/api/login/account',
-    '/api/currentUser',
-    // {path: ['/api/currentUser']},
     // {path: ['/api/crawler']},
     // {path: ['/api/manage']},
     // {path: ['/api/auth_routes']},
