@@ -16,6 +16,8 @@ const { MD5_SUFFIX, md5, secretKey } = require('../utils/constant');
 
 router.get('/getJobAndUserNum', function(req, res, next) {
   let query = {};
+  let startTime = new Date(new Date(new Date().toLocaleDateString()).getTime()).valueOf(); // 当天0点
+  let endTime = new Date(new Date(new Date().toLocaleDateString()).getTime() +24 * 60 * 60 * 1000 -1).valueOf();// 当天23:59
   myDb.connect().then(dbObj => {
     dbObj.collection("job").count(function (err, totalJob) {
       if (err) {
@@ -29,13 +31,24 @@ router.get('/getJobAndUserNum', function(req, res, next) {
           if (err) {
             throw err;
           }
-          res.json({
-            success: true,
-            result: {
-              totalJob,
-              totalUser,
-              totalRequset
+          dbObj.collection("requestLog").find({
+            "timestamp": {
+              $gte: startTime+'',
+              $lte: endTime+''
             }
+          }).count(function (err, currDayRequset) {
+            if (err) {
+              throw err;
+            }
+            res.json({
+              success: true,
+              result: {
+                totalJob,
+                totalUser,
+                totalRequset,
+                currDayRequset
+              }
+            })
           })
         })
       })

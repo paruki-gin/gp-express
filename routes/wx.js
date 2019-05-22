@@ -513,6 +513,11 @@ router.post('/pageCollectionList', function(req, res, next) {
             as: "jobs"
           }
         },
+        {
+          $match: {
+            'jobs.status': 1
+          }
+        },
         {$project:{"jobId":0,"userId":0}},
         {$unwind:"$jobs"},
         {$sort:{"updateTime":-1}},
