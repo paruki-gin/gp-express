@@ -170,7 +170,7 @@ router.post('/login', function(req, res, next) {
                       if (error) {
                         console.error(error);
                       } else {
-                        console.log(ress)
+                        // console.log(ress)
                       }
                   })
                 }
@@ -233,8 +233,12 @@ router.post('/pageList', function(req, res, next) {
   }
   let currInput = req.body.currInput || "";
   if (currInput) {
-    name = name.replace(/([\^\$\(\)\*\+\?\.\\\|\[\]\{\}])/g, "\\$1");
-    query['name'] = new RegExp(currInput, 'i');
+    currInput = currInput.replace(/([\^\$\(\)\*\+\?\.\\\|\[\]\{\}])/g, "\\$1");
+    query['$or'] = [
+      {'name': new RegExp(currInput, 'i')},
+      {'companyName': new RegExp(currInput, 'i')}
+    ]
+    // query['name'] = new RegExp(currInput, 'i');
   }
   let currSalary = req.body.currSalary || "";
   if (currSalary && currSalary !== '-1') {
@@ -601,23 +605,55 @@ router.get('/setUserCollection', function(req, res, next) {
     let decoded = jwt.decode(authorization.split(' ')[1]);
     let openid = decoded['openid'];
     myDb.connect().then(dbObj => {
-      dbObj.collection("userCollection").insert(
-        {
-          userId: openid,
-          jobId: ObjectId(jobId),
-          status: 1,
-          createTime: (new Date()).valueOf()+'',
-          updateTime: (new Date()).valueOf()+''
+      dbObj.collection("userCollection")
+        .findOne({
+          'userId': openid, 
+          'jobId': ObjectId(jobId)
         }, function(err, result) {
-        if (err) {
-          console.error(err);
-        } else {
-          res.json({
-            success: true,
-            msg: '收藏成功'
-          })
-        }
-      })
+          if (err) {
+            console.error(err);
+          }
+          if (result) {
+            dbObj.collection("userCollection").update(
+              {
+                "userId": openid,
+                "jobId": ObjectId(jobId)
+              },
+              {
+                "$set":{
+                  status: 1,
+                  updateTime: (new Date()).valueOf()+''
+                }
+              }, function(err, result) {
+              if (err) {
+                console.error(err);
+              } else {
+                res.json({
+                  success: true,
+                  msg: '取消收藏成功'
+                })
+              }
+            })
+          } else {
+            dbObj.collection("userCollection").insert(
+              {
+                userId: openid,
+                jobId: ObjectId(jobId),
+                status: 1,
+                createTime: (new Date()).valueOf()+'',
+                updateTime: (new Date()).valueOf()+''
+              }, function(err, result) {
+              if (err) {
+                console.error(err);
+              } else {
+                res.json({
+                  success: true,
+                  msg: '收藏成功'
+                })
+              }
+            })
+          }
+        });
       dbObj.collection("user").update(
         {
           openId: openid,
